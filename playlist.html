@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Your Mood Playlist</title>
+  <script>
+    let displayedTracks = [];
+
+    function mapMoodToGenre(mood) {
+      switch (mood) {
+        case "positive": return "pop";
+        case "negative": return "sad";
+        case "neutral": return "ambient";
+        default: return "chill";
+      }
+    }
+
+    async function fetchTracksFromiTunes() {
+        const mood = localStorage.getItem("userMood") || "neutral";
+        const genre = mapMoodToGenre(mood);
+      
+        // Step 1: Build encoded proxy URL
+        const originalUrl = `https://itunes.apple.com/search?term=${genre}&media=music&limit=10`;
+        const apiUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(originalUrl)}`;
+      
+        console.log("Fetching from:", apiUrl); // ✅ See what you're hitting
+      
+        try {
+          const res = await fetch(apiUrl);
+          if (!res.ok) throw new Error("Proxy fetch failed");
+      
+          // Step 2: allorigins returns wrapped JSON string under `contents`
+          const wrapped = await res.json();
+          const data = JSON.parse(wrapped.contents);
+      
+          // Step 3: Handle results
+          const list = document.getElementById("playlist");
+          list.innerHTML = "";
+      
+          if (!data.results || data.results.length === 0) {
+            list.innerHTML = `<p class="text-red-600">⚠️ No songs found for mood "${mood}".</p>`;
+            return;
+          }
+      
+          data.results.forEach(track => {
+            const li = document.createElement("li");
+            li.className = "mb-4 flex gap-4 items-center";
+            li.innerHTML = `
+              <img src="${track.artworkUrl100.replace("100x100", "300x300")}" class="w-16 h-16 rounded shadow" />
+              <div>
+                <p class="font-semibold">${track.trackName}</p>
+                <p class="text-sm text-gray-600">${track.artistName}</p>
+                ${track.previewUrl ? `<audio controls class="mt-1"><source src="${track.previewUrl}" type="audio/mpeg"></audio>` : `<p class="text-xs text-red-500">No preview available</p>`}
+              </div>
+            `;
+            list.appendChild(li);
+          });
+        } catch (err) {
+          console.error("❌ FETCH ERROR:", err);
+          document.getElementById("playlist").innerHTML = `<p class="text-red-600">⚠️ Failed to fetch songs. Try refreshing.</p>`;
+        }
+      }
+      
+
+    window.onload = fetchTracksFromiTunes;
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-blue-100 min-h-screen p-6">
+  <h1 class="text-3xl font-bold text-center text-green-800 mb-4">🎶 Your Mood Playlist</h1>
+
+  <ul id="playlist" class="max-w-2xl mx-auto list-none p-0"></ul>
+
+  <div class="mt-8 flex justify-center gap-4">
+    <button onclick="window.location.href='index.html'"
+            class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">
+      🔁 Regenerate
+    </button>
+  </div>
+</body>
+</html>
